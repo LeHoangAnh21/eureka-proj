@@ -110,7 +110,7 @@ export class PurchaseOrdersController {
   }
 
   @Post('goods-receipts/:grnId/reverse')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Reverse a confirmed GRN' })
   reverseGRN(
     @Param('grnId') grnId: string,

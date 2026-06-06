@@ -8,13 +8,33 @@ const DEMO_WAREHOUSES = [
 ];
 
 const DEMO_PARTNERS = [
-  { code: 'NCC-001', name: 'Công ty TNHH Điện tử ABC', type: 'SUPPLIER' as const, taxCode: '0101234567' },
-  { code: 'NCC-002', name: 'Công ty CP Phụ kiện XYZ', type: 'SUPPLIER' as const, taxCode: '0107654321' },
+  {
+    code: 'NCC-001',
+    name: 'Công ty TNHH Điện tử ABC',
+    type: 'SUPPLIER' as const,
+    taxCode: '0101234567',
+  },
+  {
+    code: 'NCC-002',
+    name: 'Công ty CP Phụ kiện XYZ',
+    type: 'SUPPLIER' as const,
+    taxCode: '0107654321',
+  },
   { code: 'NCC-003', name: 'Nhà máy Thiết bị DEF', type: 'SUPPLIER' as const },
-  { code: 'KH-001', name: 'Công ty CP Thương mại GHI', type: 'CUSTOMER' as const, taxCode: '0109988776' },
+  {
+    code: 'KH-001',
+    name: 'Công ty CP Thương mại GHI',
+    type: 'CUSTOMER' as const,
+    taxCode: '0109988776',
+  },
   { code: 'KH-002', name: 'Siêu thị Điện máy JKL', type: 'CUSTOMER' as const },
   { code: 'KH-003', name: 'Tập đoàn Bán lẻ MNO', type: 'CUSTOMER' as const },
-  { code: 'DT-001', name: 'Tập đoàn Công nghệ PQR', type: 'BOTH' as const, taxCode: '0201122334' },
+  {
+    code: 'DT-001',
+    name: 'Tập đoàn Công nghệ PQR',
+    type: 'BOTH' as const,
+    taxCode: '0201122334',
+  },
 ];
 
 const DEMO_PRODUCTS = [
@@ -45,7 +65,9 @@ export class AdminService {
 
     // Warehouses
     for (const w of DEMO_WAREHOUSES) {
-      const existing = await this.prisma.warehouse.findUnique({ where: { code: w.code } });
+      const existing = await this.prisma.warehouse.findUnique({
+        where: { code: w.code },
+      });
       if (!existing) {
         await this.prisma.warehouse.create({ data: w });
         results.warehouses++;
@@ -54,7 +76,9 @@ export class AdminService {
 
     // Partners
     for (const p of DEMO_PARTNERS) {
-      const existing = await this.prisma.partner.findUnique({ where: { code: p.code } });
+      const existing = await this.prisma.partner.findUnique({
+        where: { code: p.code },
+      });
       if (!existing) {
         await this.prisma.partner.create({ data: p });
         results.partners++;
@@ -63,7 +87,9 @@ export class AdminService {
 
     // Products
     for (const p of DEMO_PRODUCTS) {
-      const existing = await this.prisma.product.findUnique({ where: { code: p.code } });
+      const existing = await this.prisma.product.findUnique({
+        where: { code: p.code },
+      });
       if (!existing) {
         await this.prisma.product.create({ data: p });
         results.products++;
@@ -77,15 +103,21 @@ export class AdminService {
       { code: 'CNY', name: 'Nhân dân tệ', rate: 3500 },
     ];
 
-    const admin = await this.prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    const admin = await this.prisma.user.findFirst({
+      where: { role: 'ADMIN' },
+    });
     const adminId = admin!.id;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     for (const c of demoCurrencies) {
-      let currency = await this.prisma.currency.findUnique({ where: { code: c.code } });
+      let currency = await this.prisma.currency.findUnique({
+        where: { code: c.code },
+      });
       if (!currency) {
-        currency = await this.prisma.currency.create({ data: { code: c.code, name: c.name } });
+        currency = await this.prisma.currency.create({
+          data: { code: c.code, name: c.name },
+        });
         results.currencies++;
       }
       const existingRate = await this.prisma.exchangeRate.findFirst({

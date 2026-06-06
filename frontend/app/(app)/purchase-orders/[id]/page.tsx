@@ -130,10 +130,16 @@ function PageContent() {
     setGrnError('');
     setGrnSubmitting(true);
     try {
+      const filteredLines = grnLines.filter((l) => l.receivedQty > 0);
+      if (filteredLines.length === 0) {
+        setGrnError('Vui lòng nhập số lượng nhận cho ít nhất 1 sản phẩm');
+        setGrnSubmitting(false);
+        return;
+      }
       await api.post(`/purchase-orders/${id}/goods-receipts`, {
         receiptDate: grnDate,
-        lines: grnLines.filter((l) => l.receivedQty > 0).map((l) => ({
-          poLineId: l.poLineId,
+        lines: filteredLines.map((l) => ({
+          purchaseOrderLineId: l.poLineId,
           receivedQty: Number(l.receivedQty),
         })),
       });

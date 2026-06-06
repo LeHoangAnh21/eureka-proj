@@ -104,7 +104,7 @@ export class SalesOrdersController {
   }
 
   @Post('delivery-orders/:doId/reverse')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Reverse a confirmed DO' })
   reverseDO(
     @Param('doId') doId: string,

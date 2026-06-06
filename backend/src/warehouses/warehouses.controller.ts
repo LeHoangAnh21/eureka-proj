@@ -38,8 +38,8 @@ export class WarehousesController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Tạo kho (Admin)' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Tạo kho (Admin, Manager)' })
   create(
     @Body() dto: CreateWarehouseDto,
     @CurrentUser() actor: { id: string },
@@ -48,8 +48,8 @@ export class WarehousesController {
   }
 
   @Post('import')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Import nhiều kho (Admin)' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Import nhiều kho (Admin, Manager)' })
   importMany(
     @Body() dto: ImportWarehousesDto,
     @CurrentUser() actor: { id: string },
@@ -58,8 +58,8 @@ export class WarehousesController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Cập nhật kho (Admin)' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Cập nhật kho (Admin, Manager)' })
   update(
     @Param('id') id: string,
     @Body() dto: UpdateWarehouseDto,

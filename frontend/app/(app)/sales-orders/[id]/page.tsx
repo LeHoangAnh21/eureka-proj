@@ -129,10 +129,16 @@ function PageContent() {
     setDOError('');
     setDOSubmitting(true);
     try {
+      const filteredLines = doLines.filter((l) => l.shippedQty > 0);
+      if (filteredLines.length === 0) {
+        setDOError('Vui lòng nhập số lượng xuất cho ít nhất 1 sản phẩm');
+        setDOSubmitting(false);
+        return;
+      }
       await api.post(`/sales-orders/${id}/delivery-orders`, {
         deliveryDate: doDate,
-        lines: doLines.filter((l) => l.shippedQty > 0).map((l) => ({
-          soLineId: l.soLineId,
+        lines: filteredLines.map((l) => ({
+          salesOrderLineId: l.soLineId,
           shippedQty: Number(l.shippedQty),
         })),
       });

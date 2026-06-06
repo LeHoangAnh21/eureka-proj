@@ -35,7 +35,7 @@ export class CurrenciesController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Tạo loại tiền tệ (Admin)' })
   createCurrency(
     @Body() dto: CreateCurrencyDto,
@@ -58,7 +58,7 @@ export class ExchangeRatesController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Thêm tỷ giá mới (Admin)' })
   create(
     @Body() dto: CreateExchangeRateDto,

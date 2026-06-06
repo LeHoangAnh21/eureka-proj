@@ -13,7 +13,9 @@ export class AdminController {
   @Post('seed-demo')
   @HttpCode(200)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Import mock data: kho, đối tác, sản phẩm, tiền tệ' })
+  @ApiOperation({
+    summary: 'Import mock data: kho, đối tác, sản phẩm, tiền tệ',
+  })
   seedDemo() {
     return this.svc.seedDemoData();
   }

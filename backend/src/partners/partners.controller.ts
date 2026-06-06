@@ -38,14 +38,14 @@ export class PartnersController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Tạo đối tác (Admin)' })
   create(@Body() dto: CreatePartnerDto, @CurrentUser() actor: { id: string }) {
     return this.svc.create(dto, actor.id);
   }
 
   @Post('import')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Import nhiều đối tác (Admin)' })
   importMany(
     @Body() dto: ImportPartnersDto,
@@ -55,7 +55,7 @@ export class PartnersController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Cập nhật đối tác (Admin)' })
   update(
     @Param('id') id: string,

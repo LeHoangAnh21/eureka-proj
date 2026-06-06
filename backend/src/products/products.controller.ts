@@ -38,14 +38,14 @@ export class ProductsController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Tạo sản phẩm (Admin)' })
   create(@Body() dto: CreateProductDto, @CurrentUser() actor: { id: string }) {
     return this.svc.create(dto, actor.id);
   }
 
   @Post('import')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Import nhiều sản phẩm (Admin)' })
   importMany(
     @Body() dto: ImportProductsDto,
@@ -55,7 +55,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Cập nhật sản phẩm (Admin)' })
   update(
     @Param('id') id: string,
