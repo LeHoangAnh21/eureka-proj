@@ -1,0 +1,470 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+  WAREHOUSE
+}
+
+enum PartnerType {
+  SUPPLIER
+  CUSTOMER
+  BOTH
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PARTIAL
+  COMPLETED
+  CANCELLED
+}
+
+enum ReceiptStatus {
+  DRAFT
+  CONFIRMED
+  REVERSED
+}
+
+enum MovementType {
+  RECEIPT
+  ISSUE
+  REVERSAL_RECEIPT
+  REVERSAL_ISSUE
+}
+
+enum MovementSourceType {
+  GOODS_RECEIPT
+  DELIVERY_ORDER
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+// ==================== CORE ====================
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  auditLogs        AuditLog[]
+  exchangeRates    ExchangeRate[]
+  createdPOs       PurchaseOrder[]    @relation("POCreatedBy")
+  approvedPOs      PurchaseOrder[]    @relation("POApprovedBy")
+  createdGRNs      GoodsReceipt[]     @relation("GRNCreatedBy")
+  confirmedGRNs    GoodsReceipt[]     @relation("GRNConfirmedBy")
+  createdSOs       SalesOrder[]       @relation("SOCreatedBy")
+  approvedSOs      SalesOrder[]       @relation("SOApprovedBy")
+  createdDOs       DeliveryOrder[]    @relation("DOCreatedBy")
+  confirmedDOs     DeliveryOrder[]    @relation("DOConfirmedBy")
+  createdInvoices  PurchaseInvoice[]
+  createdPayments  SalesPayment[]
+  createdMovements InventoryMovement[]
+  createdSnapshots InventorySnapshot[]
+
+  @@map("users")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  reason     String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model DocumentSequence {
+  prefix    String @id
+  lastValue Int    @default(0) @map("last_value")
+
+  @@map("document_sequences")
+}
+
+// ==================== MASTER DATA ====================
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  purchaseOrders     PurchaseOrder[]
+  salesOrders        SalesOrder[]
+  goodsReceipts      GoodsReceipt[]
+  deliveryOrders     DeliveryOrder[]
+  inventoryMovements InventoryMovement[]
+  inventorySnapshots InventorySnapshot[]
+
+  @@map("warehouses")
+}
+
+model Partner {
+  id        String      @id @default(uuid())
+  code      String      @unique
+  name      String
+  type      PartnerType
+  taxCode   String?     @map("tax_code")
+  address   String?
+  isActive  Boolean     @default(true) @map("is_active")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+
+  @@map("partners")
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  unit      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  purchaseOrderLines  PurchaseOrderLine[]
+  salesOrderLines     SalesOrderLine[]
+  goodsReceiptLines   GoodsReceiptLine[]
+  deliveryOrderLines  DeliveryOrderLine[]
+  inventoryMovements  InventoryMovement[]
+  inventorySnapshots  InventorySnapshot[]
+
+  @@map("products")
+}
+
+model Currency {
+  id   String @id @default(uuid())
+  code String @unique
+  name String
+
+  exchangeRates  ExchangeRate[]
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+
+  @@map("currencies")
+}
+
+model ExchangeRate {
+  id            String   @id @default(uuid())
+  currencyId    String   @map("currency_id")
+  rate          Decimal  @db.Decimal(20, 6)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  createdBy     String   @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  currency Currency @relation(fields: [currencyId], references: [id])
+  creator  User     @relation(fields: [createdBy], references: [id])
+
+  @@index([currencyId, effectiveDate(sort: Desc)])
+  @@map("exchange_rates")
+}
+
+// ==================== PURCHASE (NHẬP) ====================
+
+model PurchaseOrder {
+  id           String      @id @default(uuid())
+  code         String      @unique
+  supplierId   String      @map("supplier_id")
+  warehouseId  String      @map("warehouse_id")
+  currencyId   String      @map("currency_id")
+  exchangeRate Decimal?    @map("exchange_rate") @db.Decimal(20, 6)
+  status       OrderStatus @default(DRAFT)
+  orderDate    DateTime    @map("order_date") @db.Date
+  expectedDate DateTime?   @map("expected_date") @db.Date
+  notes        String?
+  createdBy    String      @map("created_by")
+  approvedBy   String?     @map("approved_by")
+  approvedAt   DateTime?   @map("approved_at")
+  postedAt     DateTime?   @map("posted_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  supplier  Partner   @relation(fields: [supplierId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  currency  Currency  @relation(fields: [currencyId], references: [id])
+  creator   User      @relation("POCreatedBy", fields: [createdBy], references: [id])
+  approver  User?     @relation("POApprovedBy", fields: [approvedBy], references: [id])
+
+  lines         PurchaseOrderLine[]
+  invoices      PurchaseInvoice[]
+  goodsReceipts GoodsReceipt[]
+
+  @@index([status])
+  @@index([supplierId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id              String   @id @default(uuid())
+  purchaseOrderId String   @map("purchase_order_id")
+  productId       String   @map("product_id")
+  orderedQty      Decimal  @map("ordered_qty") @db.Decimal(20, 4)
+  receivedQty     Decimal  @default(0) @map("received_qty") @db.Decimal(20, 4)
+  unitPrice       Decimal  @map("unit_price") @db.Decimal(20, 4)
+  unitPriceVnd    Decimal? @map("unit_price_vnd") @db.Decimal(20, 4)
+  lineTotal       Decimal  @map("line_total") @db.Decimal(20, 4)
+  lineTotalVnd    Decimal? @map("line_total_vnd") @db.Decimal(20, 4)
+
+  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  product           Product            @relation(fields: [productId], references: [id])
+  goodsReceiptLines GoodsReceiptLine[]
+
+  @@map("purchase_order_lines")
+}
+
+model PurchaseInvoice {
+  id              String        @id @default(uuid())
+  purchaseOrderId String        @map("purchase_order_id")
+  invoiceNo       String        @map("invoice_no")
+  invoiceDate     DateTime      @map("invoice_date") @db.Date
+  amount          Decimal       @db.Decimal(20, 4)
+  amountVnd       Decimal       @map("amount_vnd") @db.Decimal(20, 4)
+  paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
+  paidAmount      Decimal       @default(0) @map("paid_amount") @db.Decimal(20, 4)
+  paidAmountVnd   Decimal       @default(0) @map("paid_amount_vnd") @db.Decimal(20, 4)
+  dueDate         DateTime?     @map("due_date") @db.Date
+  notes           String?
+  createdBy       String        @map("created_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  creator       User          @relation(fields: [createdBy], references: [id])
+
+  @@map("purchase_invoices")
+}
+
+model GoodsReceipt {
+  id              String        @id @default(uuid())
+  code            String        @unique
+  purchaseOrderId String        @map("purchase_order_id")
+  warehouseId     String        @map("warehouse_id")
+  receiptDate     DateTime      @map("receipt_date") @db.Date
+  status          ReceiptStatus @default(DRAFT)
+  reversalOf      String?       @map("reversal_of")
+  reversalReason  String?       @map("reversal_reason")
+  confirmedBy     String?       @map("confirmed_by")
+  confirmedAt     DateTime?     @map("confirmed_at")
+  notes           String?
+  createdBy       String        @map("created_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  purchaseOrder PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id])
+  warehouse     Warehouse      @relation(fields: [warehouseId], references: [id])
+  creator       User           @relation("GRNCreatedBy", fields: [createdBy], references: [id])
+  confirmer     User?          @relation("GRNConfirmedBy", fields: [confirmedBy], references: [id])
+  originalGRN   GoodsReceipt?  @relation("GRNReversal", fields: [reversalOf], references: [id])
+  reversals     GoodsReceipt[] @relation("GRNReversal")
+
+  lines GoodsReceiptLine[]
+
+  @@index([purchaseOrderId])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id                  String  @id @default(uuid())
+  goodsReceiptId      String  @map("goods_receipt_id")
+  purchaseOrderLineId String  @map("purchase_order_line_id")
+  productId           String  @map("product_id")
+  receivedQty         Decimal @map("received_qty") @db.Decimal(20, 4)
+
+  goodsReceipt      GoodsReceipt     @relation(fields: [goodsReceiptId], references: [id])
+  purchaseOrderLine PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id])
+  product           Product          @relation(fields: [productId], references: [id])
+
+  @@map("goods_receipt_lines")
+}
+
+// ==================== SALES (XUẤT) ====================
+
+model SalesOrder {
+  id           String      @id @default(uuid())
+  code         String      @unique
+  customerId   String      @map("customer_id")
+  warehouseId  String      @map("warehouse_id")
+  currencyId   String      @map("currency_id")
+  exchangeRate Decimal?    @map("exchange_rate") @db.Decimal(20, 6)
+  status       OrderStatus @default(DRAFT)
+  orderDate    DateTime    @map("order_date") @db.Date
+  expectedDate DateTime?   @map("expected_date") @db.Date
+  contractNo   String?     @map("contract_no")
+  notes        String?
+  createdBy    String      @map("created_by")
+  approvedBy   String?     @map("approved_by")
+  approvedAt   DateTime?   @map("approved_at")
+  postedAt     DateTime?   @map("posted_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  customer  Partner   @relation(fields: [customerId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  currency  Currency  @relation(fields: [currencyId], references: [id])
+  creator   User      @relation("SOCreatedBy", fields: [createdBy], references: [id])
+  approver  User?     @relation("SOApprovedBy", fields: [approvedBy], references: [id])
+
+  lines          SalesOrderLine[]
+  payments       SalesPayment[]
+  deliveryOrders DeliveryOrder[]
+
+  @@index([status])
+  @@index([customerId])
+  @@map("sales_orders")
+}
+
+model SalesOrderLine {
+  id           String   @id @default(uuid())
+  salesOrderId String   @map("sales_order_id")
+  productId    String   @map("product_id")
+  orderedQty   Decimal  @map("ordered_qty") @db.Decimal(20, 4)
+  shippedQty   Decimal  @default(0) @map("shipped_qty") @db.Decimal(20, 4)
+  unitPrice    Decimal  @map("unit_price") @db.Decimal(20, 4)
+  unitPriceVnd Decimal? @map("unit_price_vnd") @db.Decimal(20, 4)
+  lineTotal    Decimal  @map("line_total") @db.Decimal(20, 4)
+  lineTotalVnd Decimal? @map("line_total_vnd") @db.Decimal(20, 4)
+
+  salesOrder         SalesOrder          @relation(fields: [salesOrderId], references: [id])
+  product            Product             @relation(fields: [productId], references: [id])
+  deliveryOrderLines DeliveryOrderLine[]
+
+  @@map("sales_order_lines")
+}
+
+model SalesPayment {
+  id            String   @id @default(uuid())
+  salesOrderId  String   @map("sales_order_id")
+  paymentDate   DateTime @map("payment_date") @db.Date
+  amount        Decimal  @db.Decimal(20, 4)
+  amountVnd     Decimal  @map("amount_vnd") @db.Decimal(20, 4)
+  exchangeRate  Decimal  @map("exchange_rate") @db.Decimal(20, 6)
+  paymentMethod String   @map("payment_method")
+  notes         String?
+  createdBy     String   @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id])
+  creator    User       @relation(fields: [createdBy], references: [id])
+
+  @@map("sales_payments")
+}
+
+model DeliveryOrder {
+  id             String        @id @default(uuid())
+  code           String        @unique
+  salesOrderId   String        @map("sales_order_id")
+  warehouseId    String        @map("warehouse_id")
+  deliveryDate   DateTime      @map("delivery_date") @db.Date
+  status         ReceiptStatus @default(DRAFT)
+  reversalOf     String?       @map("reversal_of")
+  reversalReason String?       @map("reversal_reason")
+  confirmedBy    String?       @map("confirmed_by")
+  confirmedAt    DateTime?     @map("confirmed_at")
+  notes          String?
+  createdBy      String        @map("created_by")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  salesOrder  SalesOrder     @relation(fields: [salesOrderId], references: [id])
+  warehouse   Warehouse      @relation(fields: [warehouseId], references: [id])
+  creator     User           @relation("DOCreatedBy", fields: [createdBy], references: [id])
+  confirmer   User?          @relation("DOConfirmedBy", fields: [confirmedBy], references: [id])
+  originalDO  DeliveryOrder?  @relation("DOReversal", fields: [reversalOf], references: [id])
+  reversals   DeliveryOrder[] @relation("DOReversal")
+
+  lines DeliveryOrderLine[]
+
+  @@index([salesOrderId])
+  @@map("delivery_orders")
+}
+
+model DeliveryOrderLine {
+  id               String  @id @default(uuid())
+  deliveryOrderId  String  @map("delivery_order_id")
+  salesOrderLineId String  @map("sales_order_line_id")
+  productId        String  @map("product_id")
+  shippedQty       Decimal @map("shipped_qty") @db.Decimal(20, 4)
+
+  deliveryOrder  DeliveryOrder  @relation(fields: [deliveryOrderId], references: [id])
+  salesOrderLine SalesOrderLine @relation(fields: [salesOrderLineId], references: [id])
+  product        Product        @relation(fields: [productId], references: [id])
+
+  @@map("delivery_order_lines")
+}
+
+// ==================== INVENTORY ====================
+
+model InventoryMovement {
+  id             String             @id @default(uuid())
+  movementType   MovementType       @map("movement_type")
+  productId      String             @map("product_id")
+  warehouseId    String             @map("warehouse_id")
+  qty            Decimal            @db.Decimal(20, 4)
+  movementDate   DateTime           @map("movement_date") @db.Date
+  sourceType     MovementSourceType @map("source_type")
+  sourceId       String             @map("source_id")
+  sourceLineId   String?            @map("source_line_id")
+  referenceCode  String             @map("reference_code")
+  idempotencyKey String?            @unique @map("idempotency_key")
+  notes          String?
+  createdBy      String             @map("created_by")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  product   Product   @relation(fields: [productId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  creator   User      @relation(fields: [createdBy], references: [id])
+
+  @@index([productId, warehouseId, movementDate])
+  @@map("inventory_movements")
+}
+
+model InventorySnapshot {
+  id           String   @id @default(uuid())
+  productId    String   @map("product_id")
+  warehouseId  String   @map("warehouse_id")
+  snapshotDate DateTime @map("snapshot_date") @db.Date
+  openingQty   Decimal  @map("opening_qty") @db.Decimal(20, 4)
+  createdBy    String   @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  product   Product   @relation(fields: [productId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  creator   User      @relation(fields: [createdBy], references: [id])
+
+  @@unique([productId, warehouseId, snapshotDate])
+  @@index([productId, warehouseId, snapshotDate(sort: Desc)])
+  @@map("inventory_snapshots")
+}
